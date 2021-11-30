@@ -200,6 +200,11 @@ def get_parser_args():
         help="Snakemake YAML config file path")
 
     parser.add_argument(
+        "--num_runs",
+        default="50",
+        help="Number of generative pipeline runs required")
+
+    parser.add_argument(
         "--sim-samples-file",
         default="ceph_unrelated_all.tsv",
         help="List of samples from 1000genomes for pedsim to use as founders. You can choose only from 'ceph_unrelated_all.tsv', 'all.tsv'")
@@ -234,7 +239,7 @@ def get_parser_args():
 
     args = parser.parse_args()
 
-    valid_commands = ['preprocess', 'find', 'simulate', 'hapmap', 'reference', 'bundle']
+    valid_commands = ['preprocess', 'find', 'simulate', 'hapmap', 'reference', 'bundle', 'simbig']
     if args.command not in valid_commands:
         raise RuntimeError(f'command {args.command} not in list of valid commands: {valid_commands}')
 
@@ -297,6 +302,19 @@ if __name__ == '__main__':
             os.path.join(args.directory, 'config.yaml')
         )
 
+    if args.command == 'simbig':
+        copy_input(
+            os.path.join(current_path, 'workflows/simbig/params'),
+            args.directory, os.path.join(current_path, 'workflows/simbig/', args.sim_samples_file)
+        )
+        # for some reason launching with docker from command line
+        # sets root directory for 'configfile' directive in bundle.Snakefile as snakemake.workdir
+        # therefore config.yaml must be in snakemake.workdir
+        shutil.copy(
+            os.path.join(current_path, 'workflows/simbig/config.yaml'),
+            os.path.join(args.directory, 'config.yaml')
+        )
+
     if args.command == 'hapmap':
         # for some reason launching with docker from command line
         # sets root directory for 'configfile' directive in Snakefile as snakemake.workdir
@@ -319,7 +337,8 @@ if __name__ == '__main__':
         'simulate': 'workflows/pedsim/Snakefile',
         'hapmap': 'workflows/hapmap/Snakefile',
         'reference': 'workflows/reference/Snakefile',
-        'bundle': 'workflows/bundle/Snakefile'
+        'bundle': 'workflows/bundle/Snakefile',
+        'simbig': 'workflows/simbig/Snakefile'
     }
 
     if args.client:
@@ -345,6 +364,7 @@ if __name__ == '__main__':
     config_dict = {'mode': 'client'} if args.client is not None else {}
     config_dict['sim_params_file'] = args.sim_params_file
     config_dict['sim_samples_file'] = args.sim_samples_file
+    config_dict['num_runs'] = args.num_runs
     config_dict['assembly'] = args.assembly
     config_dict['mem_gb'] = args.memory
     if args.ref_directory != '':
@@ -352,7 +372,7 @@ if __name__ == '__main__':
     if args.flow not in ['germline', 'ibis', 'ibis_king']:
         raise ValueError(f'--flow can be one of the ["germline", "ibis", "ibis_king"] and not {args.flow}')
     config_dict['flow'] = args.flow
-    if args.command in ['preprocess', 'simulate', 'hapmap', 'reference', 'bundle']:
+    if args.command in ['preprocess', 'simulate', 'hapmap', 'reference', 'bundle', 'simbig']:
         config_dict['remove_imputation'] = args.remove_imputation
         config_dict['impute'] = args.impute
         config_dict['phase'] = args.phase
@@ -389,3 +409,4 @@ if __name__ == '__main__':
 
     end_time = datetime.datetime.now()
     print("--- Pipeline running time: %s ---" % (str(end_time - start_time)))
+
