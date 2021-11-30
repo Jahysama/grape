@@ -42,10 +42,6 @@ def prepare_folders():
 if not FOLDERS_PREPARED:
     prepare_folders()
 
-
-#CHIP_DATA_LINK = 'ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/supporting/hd_genotype_chip/ALL.chip.omni_broad_sanger_combined.20140818.snps.genotypes.vcf.gz'
-#CHIP_INDEX_LINK = 'ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/supporting/hd_genotype_chip/ALL.chip.omni_broad_sanger_combined.20140818.snps.genotypes.vcf.gz.tbi'
-
 rule all:
     input:
         "generated.vcf.gz",
