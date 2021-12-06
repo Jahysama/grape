@@ -236,10 +236,16 @@ def get_parser_args():
         default=False,
         help='Download all references as single file'
     )
+    
+    parser.add_argument(
+        '--chip',
+        default="",
+        help='Path to chip file'
+    )
 
     args = parser.parse_args()
 
-    valid_commands = ['preprocess', 'find', 'simulate', 'hapmap', 'reference', 'bundle', 'simbig']
+    valid_commands = ['preprocess', 'find', 'simulate', 'hapmap', 'reference', 'bundle', 'simbig', 'remove_relatives']
     if args.command not in valid_commands:
         raise RuntimeError(f'command {args.command} not in list of valid commands: {valid_commands}')
 
@@ -327,7 +333,7 @@ if __name__ == '__main__':
     if args.command == 'preprocess':
         shutil.copy(args.vcf_file, os.path.join(args.directory, 'input.vcf.gz'))
 
-    if args.command in ['preprocess', 'find', 'reference', 'bundle']:
+    if args.command in ['preprocess', 'find', 'reference', 'bundle', 'remove_relatives']:
         if args.directory != '.':
             shutil.copy(os.path.join(current_path, 'config.yaml'), os.path.join(args.directory, 'config.yaml'))
 
@@ -338,7 +344,8 @@ if __name__ == '__main__':
         'hapmap': 'workflows/hapmap/Snakefile',
         'reference': 'workflows/reference/Snakefile',
         'bundle': 'workflows/bundle/Snakefile',
-        'simbig': 'workflows/simbig/Snakefile'
+        'simbig': 'workflows/simbig/Snakefile',
+        'remove_relatives':'workflows/remove_relatives/Snakefile'
     }
 
     if args.client:
@@ -369,10 +376,13 @@ if __name__ == '__main__':
     config_dict['mem_gb'] = args.memory
     if args.ref_directory != '':
         config_dict['ref_dir'] = args.ref_directory
+    if args.chip != '':
+        config_dict["reference"]["affymetrix_chip"]["file"] = args.chip
+     
     if args.flow not in ['germline', 'ibis', 'ibis_king']:
         raise ValueError(f'--flow can be one of the ["germline", "ibis", "ibis_king"] and not {args.flow}')
     config_dict['flow'] = args.flow
-    if args.command in ['preprocess', 'simulate', 'hapmap', 'reference', 'bundle', 'simbig']:
+    if args.command in ['preprocess', 'simulate', 'hapmap', 'reference', 'bundle', 'simbig','remove_relatives']:
         config_dict['remove_imputation'] = args.remove_imputation
         config_dict['impute'] = args.impute
         config_dict['phase'] = args.phase
