@@ -6,10 +6,12 @@ import shutil
 import os
 from inspect import getsourcefile
 
+
 # Returns an integer value for total available memory, in GB.
 def total_memory_gb():
     n_bytes = psutil.virtual_memory().total
     return int(n_bytes / (1024 * 1024 * 1024))
+
 
 def get_parser_args():
     parser = argparse.ArgumentParser()
@@ -200,11 +202,6 @@ def get_parser_args():
         help="Snakemake YAML config file path")
 
     parser.add_argument(
-        "--num_runs",
-        default="50",
-        help="Number of generative pipeline runs required")
-
-    parser.add_argument(
         "--sim-samples-file",
         default="ceph_unrelated_all.tsv",
         help="List of samples from 1000genomes for pedsim to use as founders. You can choose only from 'ceph_unrelated_all.tsv', 'all.tsv'")
@@ -236,10 +233,10 @@ def get_parser_args():
         default=False,
         help='Download all references as single file'
     )
-    
+
     parser.add_argument(
         '--chip',
-        default="",
+        default="background.vcf.gz",
         help='Path to chip file'
     )
 
@@ -259,7 +256,6 @@ def get_parser_args():
 
 
 def copy_file(working_dir, file_path):
-
     samples_name = os.path.split(file_path)[-1]
     samples_path = os.path.join(working_dir, samples_name)
     if not os.path.exists(samples_path):
@@ -267,7 +263,6 @@ def copy_file(working_dir, file_path):
 
 
 def copy_input(input_dir, working_dir, samples_file):
-
     input_name = os.path.split(input_dir)[-1]
     dest_path = os.path.join(working_dir, input_name)
     if not os.path.exists(dest_path):
@@ -345,7 +340,7 @@ if __name__ == '__main__':
         'reference': 'workflows/reference/Snakefile',
         'bundle': 'workflows/bundle/Snakefile',
         'simbig': 'workflows/simbig/Snakefile',
-        'remove_relatives':'workflows/remove_relatives/Snakefile'
+        'remove_relatives': 'workflows/remove_relatives/Snakefile'
     }
 
     if args.client:
@@ -371,18 +366,17 @@ if __name__ == '__main__':
     config_dict = {'mode': 'client'} if args.client is not None else {}
     config_dict['sim_params_file'] = args.sim_params_file
     config_dict['sim_samples_file'] = args.sim_samples_file
-    config_dict['num_runs'] = args.num_runs
     config_dict['assembly'] = args.assembly
     config_dict['mem_gb'] = args.memory
     if args.ref_directory != '':
         config_dict['ref_dir'] = args.ref_directory
     if args.chip != '':
-        config_dict["reference"]["affymetrix_chip"]["file"] = args.chip
-     
+        config_dict['chip'] = args.chip
+
     if args.flow not in ['germline', 'ibis', 'ibis_king']:
         raise ValueError(f'--flow can be one of the ["germline", "ibis", "ibis_king"] and not {args.flow}')
     config_dict['flow'] = args.flow
-    if args.command in ['preprocess', 'simulate', 'hapmap', 'reference', 'bundle', 'simbig','remove_relatives']:
+    if args.command in ['preprocess', 'simulate', 'hapmap', 'reference', 'bundle', 'simbig', 'remove_relatives']:
         config_dict['remove_imputation'] = args.remove_imputation
         config_dict['impute'] = args.impute
         config_dict['phase'] = args.phase
@@ -419,4 +413,3 @@ if __name__ == '__main__':
 
     end_time = datetime.datetime.now()
     print("--- Pipeline running time: %s ---" % (str(end_time - start_time)))
-
