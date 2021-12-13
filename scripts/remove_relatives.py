@@ -1,6 +1,6 @@
 import pandas as pd
 import networkx as nx
-relatives = pd.read_csv('./relatives.tsv', sep = '\t')
+relatives = pd.read_csv('./results/relatives.tsv', sep = '\t')
 total_rel = len(list(set(list(relatives['id1'].unique()) + list(relatives['id2'].unique()))))
 relatives = relatives.loc[relatives.final_degree < 7]
 G = nx.Graph()
@@ -12,7 +12,7 @@ def rm_node(g):
   while max(degree_dict.values()) > 0:
     degree_dict = {node:val for (node, val) in g.degree()}
     max_node = max(degree_dict, key=degree_dict.get)
-    remove_list.append(max_node)
+    remove_list.append(max_node.split("_")[0])
     g.remove_node(max_node)
   return remove_list
 
