@@ -1,9 +1,11 @@
 import os
+from os.path import join
 import random
 import string
 import json
 
 REF_DIR            = config["ref_dir"]
+CHIP               = config["chip"]
 REF_VCF            = join(REF_DIR, config["reference"]["vcfRef"]["file"])
 PEDSIM_MAP         = join(REF_DIR, config["reference"]["pedsim_map"]["file"])
 CHROMOSOMES        = [str(i) for i in range(1, 23)]
@@ -66,7 +68,7 @@ rule all:
 
 rule intersect:
     input:
-        hd_genotype_chip='background.vcf.gz',
+        hd_genotype_chip=CHIP,
         vcfRef=REF_VCF
     output:
         temp("pedsim/phased/chr{chrom}.phased.vcf.gz")
