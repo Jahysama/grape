@@ -1,14 +1,13 @@
-from os.path import join
 import os
 import random
 import string
+import json
 
 REF_DIR            = config["ref_dir"]
-NUM_RUNS           = list(range(int(config["num_runs"])))
 REF_VCF            = join(REF_DIR, config["reference"]["vcfRef"]["file"])
-AFFYMETRIX_CHIP    = join(REF_DIR, config["reference"]["affymetrix_chip"]["file"])
 PEDSIM_MAP         = join(REF_DIR, config["reference"]["pedsim_map"]["file"])
-CHROMOSOMES     = [str(i) for i in range(1, 23)]
+CHROMOSOMES        = [str(i) for i in range(1, 23)]
+DEF_FILE           = config['sim_params_file']
 
 names = []
 def generate_code():
@@ -20,39 +19,59 @@ def generate_code():
     names.append(code)
     return code
 
-def prepare_folders():
-    for i in NUM_RUNS:
+def get_num_runs(def_file):
+    with open("list.samples", "r") as f:
+        lines = f.readlines()
+        samples = [line.rstrip() for line in lines]
+        total_founders = len(samples)
+
+    with open(f"{def_file}", "r") as f:
+        lines = f.readlines()
+        runs = int(lines[0].split(" ")[2])
+        founders = 0
+        for line in lines[1:-1]:
+            ppl = int(line.split(" ")[2])
+            founders += ppl
+        founders *= (runs + 1)
+        num_chips = int(total_founders / founders)
+    print(f"Number of runs: {num_chips}cd ")
+    return num_chips, founders
+
+def prepare_folders(num_runs, def_file):
+    if not os.path.exists("background"):
+        os.makedirs("background")
+    for i in range(num_runs):
         if not os.path.exists(f"gen{i}"):
             os.makedirs(f"gen{i}")
         os.system(f"cp -R params gen{i}/params")
-        with open(f"{config['sim_params_file']}", "r") as f:
+        with open(f"{def_file}", "r") as f:
             lines = f.readlines()
             first = lines[0].split(" ")
             name = generate_code()
             first[1] = name
             lines[0] = " ".join(first)
-
         with open(f"gen{i}/params/relatives_big.def", "w") as f:
             f.write("\n".join(lines))
 
-
-
-#CHIP_DATA_LINK = 'ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/supporting/hd_genotype_chip/ALL.chip.omni_broad_sanger_combined.20140818.snps.genotypes.vcf.gz'
-#CHIP_INDEX_LINK = 'ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/supporting/hd_genotype_chip/ALL.chip.omni_broad_sanger_combined.20140818.snps.genotypes.vcf.gz.tbi'
+NUM_RUNS, NUM_FOUNDERS = get_num_runs(DEF_FILE)
+data = [NUM_RUNS, NUM_FOUNDERS]
+prepare_folders(NUM_RUNS, DEF_FILE)
+with open('config.temp', 'w') as outfile:
+    json.dump(data, outfile)
 
 rule all:
     input:
         "generated.vcf.gz",
         "generated.vcf.gz.csi"
 
-
 rule intersect:
     input:
-        hd_genotype_chip=AFFYMETRIX_CHIP,
+        hd_genotype_chip='background.vcf.gz',
         vcfRef=REF_VCF
     output:
         temp("pedsim/phased/chr{chrom}.phased.vcf.gz")
-    conda: "../../envs/bcftools.yaml"
+    conda:
+        "../../envs/bcftools.yaml"
     shell:
         """
             bcftools isec -n=2 -w1 -r {wildcards.chrom} -O z -o {output} {input.vcfRef} {input.hd_genotype_chip}
@@ -84,55 +103,67 @@ rule merge_background:
         """
 
 
+rule split_chip:
+    input:
+        back = "pedsim/phased/background.vcf.gz",
+        list = "list.samples",
+        chips = "segment{runs}.vcf.gz",
+        def_file = "gen{runs}/params/relatives_big.def"
+    output:
+        temp("background/segment{runs}.vcf.gz")
+    conda:
+        "../../envs/bcftools.yaml"
+    script:
+        "../../scripts/split_chip.py"
+
 rule simulate:
     input:
-        bg=rules.merge_background.output,
         _map=PEDSIM_MAP,
         intf='params/nu_p_campbell.tsv'
     output:
-        data = temp('gen{num_runs}/data{num_runs}.vcf.gz')
+        temp('gen{runs}/data{runs}.vcf.gz')
     conda:
         "../../envs/ped-sim.yaml"
     shell:
         """
-            pedsim -d gen{wildcards.num_runs}/params/relatives_big.def -m {input._map} -i {input.bg} -o gen{wildcards.num_runs}/data{wildcards.num_runs} --intf {input.intf} --fam
+            pedsim -d gen{wildcards.runs}/params/relatives_big.def -m {input._map} -i segment{wildcards.runs}.vcf.gz -o gen{wildcards.runs}/data{wildcards.runs} --intf {input.intf} --fam
         """
 
 rule convert:
     input:
-        "gen{num_runs}/data{num_runs}.vcf.gz"
+        "gen{runs}/data{runs}.vcf.gz"
     output:
-        temp("gen{num_runs}/data4merge{num_runs}.vcf.gz")
+        temp("gen{runs}/data4merge{runs}.vcf.gz")
     conda:
         "../../envs/bcftools.yaml"
     shell:
         """
-            bcftools convert gen{wildcards.num_runs}/data{wildcards.num_runs}.vcf.gz -O z -o  gen{wildcards.num_runs}/data4merge{wildcards.num_runs}.vcf.gz
+            bcftools convert gen{wildcards.runs}/data{wildcards.runs}.vcf.gz -O z -o  gen{wildcards.runs}/data4merge{wildcards.runs}.vcf.gz
         """
 
 rule index:
     input:
-        "gen{num_runs}/data4merge{num_runs}.vcf.gz"
+        "gen{runs}/data4merge{runs}.vcf.gz"
     output:
-        temp("gen{num_runs}/data4merge{num_runs}.vcf.gz.csi")
-    conda: "../../envs/bcftools.yaml"
+        temp("gen{runs}/data4merge{runs}.vcf.gz.csi")
+    conda:
+        "../../envs/bcftools.yaml"
     shell:
         """
-            bcftools index -f gen{wildcards.num_runs}/data4merge{wildcards.num_runs}.vcf.gz
+            bcftools index -f gen{wildcards.runs}/data4merge{wildcards.runs}.vcf.gz
         """
 
 rule merge:
     input:
-        expand("gen{num_runs}/data4merge{num_runs}.vcf.gz.csi", num_runs = NUM_RUNS),
-        expand("gen{num_runs}/data4merge{num_runs}.vcf.gz", num_runs = NUM_RUNS)
+        expand("gen{num_runs}/data4merge{num_runs}.vcf.gz.csi", num_runs=list(range(NUM_RUNS))),
+        expand("gen{num_runs}/data4merge{num_runs}.vcf.gz", num_runs=list(range(NUM_RUNS)))
     output:
         "generated.vcf.gz",
         "generated.vcf.gz.csi"
-    params:
-        files = expand(" gen{num_runs}/data4merge{num_runs}.vcf.gz ", num_runs = NUM_RUNS)
-    conda: "../../envs/bcftools.yaml"
+    conda:
+        "../../envs/bcftools.yaml"
     shell:
-        """   
-            bcftools merge --merge id {params.files} -O z -o generated.vcf.gz
+        """  
+            bcftools merge --merge id $samples -O z -o generated.vcf.gz
             bcftools index -f generated.vcf.gz
         """
