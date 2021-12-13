@@ -10,7 +10,7 @@ impute: False
 remove_imputation: False
 sim_samples_file: ceph_unrelated_all.tsv
 sim_params_file: params/Relatives.def
-num_runs: 50
+chip: background.vcf.gz
 samples_file: samples.tsv
 vcf_file: pedsim/simulated/reheaded_data.vcf.gz
 use_simulated_ibd: True
