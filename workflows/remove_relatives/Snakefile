@@ -44,7 +44,8 @@ def _mem_gb_for_ram_hungry_jobs():
 
 rule all:
     input:
-        data=expand("{ref_dir}/1000genome/affymetrix_chip/backgound.vcf.gz", ref_dir = REF_DIR)
+        data="background.vcf.gz",
+        list="list.samples"
 
 rule intersect:
     input:
@@ -94,7 +95,7 @@ rule clean_relatives:
     input:
         relatives = "results/relatives.tsv"
     output:
-        remove_list = "remove_list.txt"
+        remove_list = temp("remove_list.txt")
     conda:
         "../../envs/remove_relatives.yaml"
     script:
@@ -105,12 +106,14 @@ rule create_chip:
         remove_list = "remove_list.txt",
         background = "input.vcf.gz"
     output:
-        data=expand("{ref_dir}/1000genome/affymetrix_chip/backgound.vcf.gz", ref_dir = REF_DIR)
+        back = "background.vcf.gz",
+        list_samples = "list.samples"
     params:
         list="pedsim/phased/phased.merge.list"
     conda:
         "../../envs/bcftools.yaml"
     shell:
         """
-            bcftools view {input.backgound} --force-samples --samples-file {input.remove_list} -O z -o {output}
+            bcftools view {input.background} --force-samples --samples-file {input.remove_list} -O z -o {output.back}
+            bcftools query --list-samples {output.back} > list.samples
         """
