@@ -112,7 +112,7 @@ rule split_chip:
         chips = "segment{runs}.vcf.gz",
         def_file = "gen{runs}/params/relatives_big.def"
     output:
-        temp("background/segment{runs}.vcf.gz")
+        temp(expand("background/segment{runs}.vcf.gz", runs=NUM_RUNS))
     conda:
         "../../envs/bcftools.yaml"
     script:
