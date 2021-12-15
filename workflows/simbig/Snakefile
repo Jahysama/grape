@@ -31,10 +31,9 @@ def get_num_runs(def_file):
         lines = f.readlines()
         runs = int(lines[0].split(" ")[2])
         founders = 0
-        for line in lines[1:-1]:
+        for line in lines[1:]:
             ppl = int(line.split(" ")[2])
             founders += ppl
-        founders += 1
         founders *= runs
         num_chips = int(total_founders / founders)
     print(f"Number of runs: {num_chips}cd ")
