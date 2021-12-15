@@ -122,7 +122,8 @@ rule split_chip:
 rule simulate:
     input:
         _map=PEDSIM_MAP,
-        intf='params/nu_p_campbell.tsv'
+        intf='params/nu_p_campbell.tsv',
+        seg = temp(expand("background/segment{runs}.vcf.gz", runs=NUM_RUNS)
     output:
         temp('gen{runs}/data{runs}.vcf.gz')
     conda:
