@@ -111,7 +111,7 @@ rule split_chip:
         list = "list.samples",
         def_file = "gen{runs}/params/relatives_big.def"
     output:
-        "background/segment{runs}.vcf.gz"
+        expand("background/segment{runs}.vcf.gz", num_runs=list(range(NUM_RUNS)))
     conda:
         "../../envs/bcftools.yaml"
     script:
