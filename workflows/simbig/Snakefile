@@ -31,12 +31,15 @@ def get_num_runs(def_file):
         lines = f.readlines()
         runs = int(lines[0].split(" ")[2])
         founders = 0
-        for line in lines[1:]:
-            ppl = int(line.split(" ")[1])
+        for line in lines[1:-1]:
+            ppl = int(line.split(" ")[2])
+            if ppl == 0:
+                ppl = 1
             founders += ppl
+        founders += 1
         founders *= runs
         num_chips = int(total_founders / founders)
-    print(f"Number of runs: {num_chips}cd ")
+    print(f"Number of runs: {num_chips}")
     return num_chips, founders
 
 def prepare_folders(num_runs, def_file):
@@ -56,10 +59,7 @@ def prepare_folders(num_runs, def_file):
             f.write("\n".join(lines))
 
 NUM_RUNS, NUM_FOUNDERS = get_num_runs(DEF_FILE)
-data = [NUM_RUNS, NUM_FOUNDERS]
 prepare_folders(NUM_RUNS, DEF_FILE)
-with open('config.temp', 'w') as outfile:
-    json.dump(data, outfile)
 
 rule all:
     input:
@@ -109,9 +109,12 @@ rule split_chip:
     input:
         back = "pedsim/phased/background.vcf.gz",
         list = "list.samples",
-        def_file = "gen{runs}/params/relatives_big.def"
+        def_file = expand("gen{runs}/params/relatives_big.def", runs = list(range(NUM_RUNS)))
+        num_runs = NUM_RUNS,
+        num_founders = NUM_FOUNDERS
+
     output:
-        expand("background/segment{runs}.vcf.gz", num_runs=list(range(NUM_RUNS)))
+        expand("background/segment{runs}.vcf.gz", runs = list(range(NUM_RUNS)))
     conda:
         "../../envs/bcftools.yaml"
     script:
@@ -123,7 +126,8 @@ rule simulate:
         intf='params/nu_p_campbell.tsv',
         seg = "background/segment{runs}.vcf.gz"
     output:
-        temp('gen{runs}/data{runs}.vcf.gz')
+        temp('gen{runs}/data{runs}.vcf.gz'),
+        temp('gen{runs}/data{runs}.seg')
     conda:
         "../../envs/ped-sim.yaml"
     shell:
@@ -157,8 +161,8 @@ rule index:
 
 rule merge:
     input:
-        expand("gen{num_runs}/data4merge{num_runs}.vcf.gz.csi", num_runs=list(range(NUM_RUNS))),
-        expand("gen{num_runs}/data4merge{num_runs}.vcf.gz", num_runs=list(range(NUM_RUNS)))
+        index = expand("gen{num_runs}/data4merge{num_runs}.vcf.gz.csi", num_runs=list(range(NUM_RUNS))),
+        samples = expand("gen{num_runs}/data4merge{num_runs}.vcf.gz", num_runs=list(range(NUM_RUNS)))
     output:
         "generated.vcf.gz",
         "generated.vcf.gz.csi"
@@ -166,6 +170,6 @@ rule merge:
         "../../envs/bcftools.yaml"
     shell:
         """  
-            bcftools merge --merge id $samples -O z -o generated.vcf.gz
+            bcftools merge --merge id {input.samples} -O z -o generated.vcf.gz
             bcftools index -f generated.vcf.gz
         """
